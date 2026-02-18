@@ -1,4 +1,4 @@
-package com.xizhooou.EagerThreadPoolExecutor;
+package com.xizhooou.eagerthreadpool;
 
 import lombok.Setter;
 
@@ -12,13 +12,15 @@ public class WorkQueue<R extends Runnable> extends LinkedBlockingQueue<Runnable>
     static final ThreadLocal<Boolean> IN_REJECT_CONTEXT =
             ThreadLocal.withInitial(() -> Boolean.FALSE);
 
-    static void enterRejectContext() {
+    public static void enterRejectContext() {
         IN_REJECT_CONTEXT.set(Boolean.TRUE);
     }
-    static void exitRejectContext() {
+
+    public static void exitRejectContext() {
         IN_REJECT_CONTEXT.remove();
     }
-    static boolean isInRejectContext() {
+
+    public static boolean isInRejectContext() {
         return Boolean.TRUE.equals(IN_REJECT_CONTEXT.get());
     }
 
@@ -98,8 +100,8 @@ public class WorkQueue<R extends Runnable> extends LinkedBlockingQueue<Runnable>
         return n;
     }
 
-    public boolean retryOffer(Runnable task, long timeout, TimeUnit unit) throws InterruptedException{
-        if (executor.isShutdown()){
+    public boolean retryOffer(Runnable task, long timeout, TimeUnit unit) throws InterruptedException {
+        if (executor != null && executor.isShutdown()) {
             throw new RejectedExecutionException("executor is shutdown");
         }
         return super.offer(task, timeout, unit);

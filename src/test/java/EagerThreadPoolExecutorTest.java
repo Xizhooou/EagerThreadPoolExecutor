@@ -1,5 +1,5 @@
-import com.xizhooou.EagerThreadPoolExecutor.EagerThreadPoolExecutor;
-import com.xizhooou.EagerThreadPoolExecutor.WorkQueue;
+import com.xizhooou.eagerthreadpool.EagerThreadPoolBuilder;
+import com.xizhooou.eagerthreadpool.EagerThreadPoolExecutor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -55,17 +55,16 @@ public class EagerThreadPoolExecutorTest {
     }
 
     private static EagerThreadPoolExecutor newExecutor(int core, int max, int queueCap, RejectedExecutionHandler handler, AtomicLong rejectedNum) {
-        WorkQueue<Runnable> q = new WorkQueue<>(queueCap);
-        return new EagerThreadPoolExecutor(
-                core,
-                max,
-                30,
-                TimeUnit.SECONDS,
-                q,
-                namedFactory("eager"),
-                handler,
-                rejectedNum
-        );
+        return EagerThreadPoolBuilder.newBuilder()
+                .name("eager-test")
+                .corePoolSize(core)
+                .maximumPoolSize(max)
+                .queueCapacity(queueCap)
+                .keepAlive(30, TimeUnit.SECONDS)
+                .threadFactory(namedFactory("eager"))
+                .rejectedExecutionHandler(handler)
+                .rejectedCounter(rejectedNum)
+                .build();
     }
 
 
