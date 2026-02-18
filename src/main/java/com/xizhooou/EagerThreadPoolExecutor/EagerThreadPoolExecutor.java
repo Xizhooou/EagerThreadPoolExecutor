@@ -1,9 +1,5 @@
-package com.xizhooou;
+package com.xizhooou.EagerThreadPoolExecutor;
 
-import javax.xml.validation.TypeInfoProvider;
-import java.awt.*;
-import java.awt.image.CropImageFilter;
-import java.net.CacheRequest;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -15,7 +11,15 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class EagerThreadPoolExecutor extends ThreadPoolExecutor {
 
-    private final AtomicInteger coreThreadCount = new AtomicInteger(0);
+    // 用于区分 拒绝策略内部入队 vs 和execute入队
+    static final ThreadLocal<Boolean> IN_EXECUTE_CONTEXT =
+            ThreadLocal.withInitial(() -> Boolean.FALSE);
+
+    static boolean isInExecuteContext(){
+        return Boolean.TRUE.equals(IN_EXECUTE_CONTEXT.get());
+    }
+
+    private final AtomicInteger submittedTaskCount = new AtomicInteger(0);
 
     // 线程池拒绝次数
     private final AtomicLong rejectedNum;
@@ -28,47 +32,70 @@ public class EagerThreadPoolExecutor extends ThreadPoolExecutor {
                                    ThreadFactory threadFactory,
                                    RejectedExecutionHandler handler,
                                    AtomicLong rejectedNum) {
-        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory,
-                RejectedProxyUtil.createProxy(handler, rejectedNum));
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
+
         this.rejectedNum = rejectedNum;
-        // 把当前线程池实例传给队列，让队列持有线程池的引用
-        // 这样 TaskQueue 在执行 offer() 等方法时，可以通过 executor 字段访问线程池的状态
-        // （如线程数、最大线程数等），实现更智能的任务调度。
+        // 让队列拿到 executor 引用
         workQueue.setExecutor(this);
+
+        setRejectedExecutionHandler(RejectedProxyUtil.createProxy(handler, rejectedNum, this));
     }
 
-    public int getCoreThreadCount(){
-        return coreThreadCount.get();
+    public int getSubmittedTaskCount(){
+        return submittedTaskCount.get();
     }
 
     public long getRejectedNum() {
         return rejectedNum.get();
     }
 
+    /**
+     * 调整 submittedTaskCount
+     */
+    void adjustSubmittedTaskCount(int delta){
+        if (delta == 0) return;
+        for (;;){
+            int cur = submittedTaskCount.get();
+            int next = Math.max(cur + delta, 0);
+            if (submittedTaskCount.compareAndSet(cur, next)) return;
+        }
+    }
+
     @Override
     protected void afterExecute(Runnable r, Throwable t) {
-        coreThreadCount.decrementAndGet();
+        try {
+            super.afterExecute(r, t);
+        } finally {
+            adjustSubmittedTaskCount(-1);
+        }
     }
 
     @Override
     public void execute(Runnable command){
-        coreThreadCount.incrementAndGet();
+        IN_EXECUTE_CONTEXT.set(Boolean.TRUE);
+        adjustSubmittedTaskCount(1);
+
         try {
             super.execute(command);
         }catch (RejectedExecutionException e){
+
             WorkQueue workQueue = (WorkQueue) getQueue();
             try {
+                // 未成功入队 -1
                 if (!workQueue.retryOffer(command, 0, TimeUnit.MILLISECONDS)){
-                    coreThreadCount.decrementAndGet();
+                    adjustSubmittedTaskCount(-1);
                     throw new RejectedExecutionException(e);
                 }
             }catch (InterruptedException e1){
-                coreThreadCount.decrementAndGet();
+                adjustSubmittedTaskCount(-1);
+                Thread.currentThread().interrupt();
                 throw new RejectedExecutionException(e1);
             }
-        }catch (Exception ex){
-            coreThreadCount.decrementAndGet();
+        }catch (RuntimeException | Error ex) {
+            adjustSubmittedTaskCount(-1);
             throw ex;
+        } finally {
+            IN_EXECUTE_CONTEXT.remove();
         }
     }
 }
