@@ -1,6 +1,6 @@
 # EagerThreadPoolExecutor
 
-一个可工程化复用的 Eager 线程池工具库，推荐通过 `EagerThreadPoolBuilder` 对外构建线程池。
+Eager 线程池工具库，通过 `EagerThreadPoolBuilder` 对外构建线程池。
 
 ## Quick Start
 
