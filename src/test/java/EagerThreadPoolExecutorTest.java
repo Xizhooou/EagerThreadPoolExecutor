@@ -304,4 +304,47 @@ public class EagerThreadPoolExecutorTest {
         assertEquals(0, submittedCount(ex), "submittedCount should end at 0");
     }
 
+    @Test
+    @Timeout(10)
+    void webhookAlert_shouldSendToWeComWebhook_whenRejectThresholdReached() throws Exception {
+        String webhookUrl = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=" + "YOUR_KEY";
+        AtomicLong rejectedNum = new AtomicLong(0);
+        EagerThreadPoolExecutor ex = EagerThreadPoolBuilder.newBuilder()
+                .name("alert-test")
+                .corePoolSize(1)
+                .maximumPoolSize(1)
+                .queueCapacity(1)
+                .keepAlive(30, TimeUnit.SECONDS)
+                .threadFactory(namedFactory("alert"))
+                .rejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy())
+                .rejectedCounter(rejectedNum)
+                .alertEnabled(true)
+                .weComWebhookUrl(webhookUrl)
+                .thresholdPerMinute(1)
+                .cooldownSeconds(0)
+                .build();
+
+        CountDownLatch blocker = new CountDownLatch(1);
+        try {
+            ex.execute(() -> {
+                try {
+                    blocker.await();
+                } catch (InterruptedException ignored) {}
+            });
+
+            waitUntil(() -> ex.getPoolSize() == 1, 1500, "poolSize didn't reach 1");
+
+            // 队列填满
+            ex.execute(() -> {});
+            // 触发拒绝，触发告警
+            assertThrows(RejectedExecutionException.class, () -> ex.execute(() -> {}));
+
+            waitUntil(() -> ex.getRejectedInLastWindow() >= 1, 1500, "alert counter didn't increase");
+            Thread.sleep(1000);
+            assertTrue(rejectedNum.get() >= 1, "rejectedNum should increase");
+        } finally {
+            shutdownAndAwait(ex, blocker);
+        }
+    }
+
 }

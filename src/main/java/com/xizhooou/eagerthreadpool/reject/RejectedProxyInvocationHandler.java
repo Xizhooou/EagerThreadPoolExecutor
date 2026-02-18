@@ -20,9 +20,12 @@ public class RejectedProxyInvocationHandler implements InvocationHandler {
     private final EagerThreadPoolExecutor executor;
     private final String poolName;
 
-    private final RejectAlertConfig alertConfig; // nullable
-    private final RejectAlertState alertState;   // nullable
-    private final WeComRobotAlerter alerter;     // nullable
+    // 报警的配置
+    private final RejectAlertConfig alertConfig;
+    // 报警状态
+    private final RejectAlertState alertState;
+    // 报警发送器
+    private final WeComRobotAlerter alerter;
 
     public RejectedProxyInvocationHandler(RejectedExecutionHandler target,
                                           AtomicLong rejectCount,
@@ -37,7 +40,7 @@ public class RejectedProxyInvocationHandler implements InvocationHandler {
 
         this.alertConfig = alertConfig;
         this.alertState = alertState;
-        this.alerter = (alertConfig != null && alertConfig.weComEnabled())
+        this.alerter = (alertConfig != null && !alertConfig.weComWebhookUrl().isBlank() && alertConfig.weComEnabled())
                 ? new WeComRobotAlerter(alertConfig.weComWebhookUrl())
                 : null;
     }
@@ -58,7 +61,7 @@ public class RejectedProxyInvocationHandler implements InvocationHandler {
                 ? (ThreadPoolExecutor) args[1]
                 : null;
 
-        alert(totalRejected, tpe);
+        tryAlert(totalRejected, tpe);
 
         boolean handlerReturnedNormally = false;
         WorkQueue.enterRejectContext();
@@ -78,7 +81,7 @@ public class RejectedProxyInvocationHandler implements InvocationHandler {
         }
     }
 
-    private void alert(long totalRejected, ThreadPoolExecutor tpe) {
+    private void tryAlert(long totalRejected, ThreadPoolExecutor tpe) {
         if (alertConfig == null || alertState == null || alerter == null) {
             return;
         }
@@ -88,16 +91,21 @@ public class RejectedProxyInvocationHandler implements InvocationHandler {
 
         alertState.getRollingCounter().increment();
 
+        // 窗口内拒绝数没到阈值就 return
         long lastWindow = alertState.getRollingCounter().sumLastWindow();
-        if (lastWindow < alertConfig.thresholdPerMinute()) {
+        long N = alertConfig.thresholdPerMinute();
+        if (lastWindow < N) {
             return;
         }
 
+        // 冷却窗口：两次报警至少间隔 cooldownMillis。
         long now = System.currentTimeMillis();
         long last = alertState.getLastAlertAtMs().get();
         if (now - last < alertConfig.cooldownMillis()) {
             return;
         }
+
+        // CAS 保证并发下只有一个线程能成功“抢到报警权”。
         if (!alertState.getLastAlertAtMs().compareAndSet(last, now)) {
             return;
         }

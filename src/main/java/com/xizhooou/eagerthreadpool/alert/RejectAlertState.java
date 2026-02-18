@@ -1,15 +1,11 @@
 package com.xizhooou.eagerthreadpool.alert;
 
-import lombok.Getter;
-
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class RejectAlertState {
     private final AtomicBoolean enabled;
-    @Getter
     private final RollingWindowCounter rollingCounter;
-    @Getter
     private final AtomicLong lastAlertAtMs = new AtomicLong(0);
 
     public RejectAlertState(boolean enabled, RollingWindowCounter rollingCounter) {
@@ -25,4 +21,11 @@ public class RejectAlertState {
         enabled.set(on);
     }
 
+    public RollingWindowCounter getRollingCounter() {
+        return rollingCounter;
+    }
+
+    public AtomicLong getLastAlertAtMs() {
+        return lastAlertAtMs;
+    }
 }

@@ -9,10 +9,9 @@ import java.util.concurrent.atomic.AtomicLongArray;
  * - sumLastWindow(): 求最近窗口内的和
  */
 public class RollingWindowCounter {
-    private final int buckets;
-    private final int bucketSeconds;
-    private final long windowSlots;
-
+    private final int buckets;            // 桶个数
+    private final int bucketSeconds;      // 每桶覆盖的秒数
+    private final long windowSlots;       // 窗口的槽数
     private final AtomicLongArray slot;   // 每个桶对应的 timeSlot
     private final AtomicLongArray count;  // 每个桶的计数
 

@@ -1,7 +1,5 @@
 package com.xizhooou.eagerthreadpool;
 
-import lombok.Setter;
-
 import java.util.Collection;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
@@ -24,9 +22,11 @@ public class WorkQueue<R extends Runnable> extends LinkedBlockingQueue<Runnable>
         return Boolean.TRUE.equals(IN_REJECT_CONTEXT.get());
     }
 
-
-    @Setter
     private EagerThreadPoolExecutor executor;
+
+    public void setExecutor(EagerThreadPoolExecutor executor) {
+        this.executor = executor;
+    }
 
     public WorkQueue(int capacity) {
         super(capacity);

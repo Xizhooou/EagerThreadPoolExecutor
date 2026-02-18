@@ -25,18 +25,28 @@ public class EagerThreadPoolBuilder {
     private RejectedExecutionHandler rejectedHandler = new ThreadPoolExecutor.AbortPolicy();
     private AtomicLong rejectedNum = new AtomicLong(0);
 
+    // 重新入队时间
     private long retryOfferTimeout = 0;
     private TimeUnit retryOfferTimeoutUnit = TimeUnit.MILLISECONDS;
 
+    // 允许核心线程也在空闲时回收
     private boolean allowCoreThreadTimeOut;
+    // 预启动所有核心线程
     private boolean prestartAllCoreThreads;
 
+    // 报警总开关
     private boolean alertEnabled;
+    // 微信报警webhook uri
     private String weComWebhookUrl = "";
+    // 报警阈值
     private long thresholdPerMinute = 200;
+    // 冷却时间
     private long cooldownSeconds = 60;
+    // 窗口大小
     private int windowSeconds = 60;
+    // 桶大小
     private int bucketSeconds = 5;
+    // 最大消息长度
     private int maxMessageChars = 1800;
 
     private EagerThreadPoolBuilder() {}

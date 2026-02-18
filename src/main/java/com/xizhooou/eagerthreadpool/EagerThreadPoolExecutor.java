@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class EagerThreadPoolExecutor extends ThreadPoolExecutor {
 
-    // 用于区分 拒绝策略内部入队 vs 和execute入队
+    // 用于区分 拒绝策略内部入队和execute入队
     static final ThreadLocal<Boolean> IN_EXECUTE_CONTEXT = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
     private final AtomicInteger submittedTaskCount = new AtomicInteger(0);
